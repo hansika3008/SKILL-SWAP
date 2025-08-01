@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SkillSwap{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="dashboard">
+        <div class="dashboard-header">
+            <h2>Welcome back, <span id="username">{{ current_user.username }}</span>!</h2>
+            <button class="btn btn-primary" onclick="openModal('addSkillModal')">Add Skills</button>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number" id="skillsOffered">0</span>
+                <span>Skills Offered</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="skillsWanted">0</span>
+                <span>Skills Wanted</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="activeSwaps">0</span>
+                <span>Active Swaps</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="rating">{{ "%.1f"|format(current_user.rating) }}</span>
+                <span>Rating</span>
+            </div>
+        </div>
+
+        <div class="skills-section">
+            <h3>Your Skills</h3>
+            <div class="skills-grid">
+                <div class="skill-category">
+                    <h3>Skills You Can Teach</h3>
+                    <div class="skill-tags" id="teachSkills">
+                        <!-- Skills will be loaded here -->
+                    </div>
+                </div>
+                <div class="skill-category">
+                    <h3>Skills You Want to Learn</h3>
+                    <div class="skill-tags" id="learnSkills">
+                        <!-- Skills will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Skill Modal -->
+<div id="addSkillModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('addSkillModal')">&times;</span>
+        <h3>Add New Skill</h3>
+        <form id="addSkillForm">
+            <div class="form-group">
+                <label for="skillName">Skill Name</label>
+                <input type="text" id="skillName" name="skillName" required>
+            </div>
+            <div class="form-group">
+                <label for="skillType">Type</label>
+                <select id="skillType" name="skillType" required>
+                    <option value="">Select...</option>
+                    <option value="teach">I can teach this</option>
+                    <option value="learn">I want to learn this</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="skillDescription">Description (optional)</label>
+                <textarea id="skillDescription" name="skillDescription" rows="3" placeholder="Describe your skill level or what you want to learn..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Add Skill</button>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+let userProfile = null;
+
+// Load user profile and skills
+async function loadUserProfile() {
+    try {
+        const response = await fetch('/api/user/profile');
+        const profile = await response.json();
+        userProfile = profile;
+        
+        // Update stats
+        document.getElementById('skillsOffered').textContent = profile.skills_teach.length;
+        document.getElementById('skillsWanted').textContent = profile.skills_learn.length;
+        
+        // Update skills display
+        updateSkillsDisplay();
+    } catch (error) {
+        showAlert('Failed to load profile', 'error');
+    }
+}
+
+function updateSkillsDisplay() {
+    if (!userProfile) return;
+    
+    const teachContainer = document.getElementById('teachSkills');
+    const learnContainer = document.getElementById('learnSkills');
+    
+    teachContainer.innerHTML = userProfile.skills_teach.map(skill => 
+        `<span class="skill-tag removable" onclick="removeSkill('${skill}')">${skill}</span>`
+    ).join('');
+    
+    learnContainer.innerHTML = userProfile.skills_learn.map(skill => 
+        `<span class="skill-tag removable" onclick="removeSkill('${skill}')">${skill}</span>`
+    ).join('');
+}
+
+// Add skill form handler
+document.getElementById('addSkillForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const skillData = {
+        name: formData.get('skillName'),
+        description: formData.get('skillDescription'),
+        type: formData.get('skillType')
+    };
+    
+    try {
+        const response = await fetch('/api/skills', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(skillData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Skill added successfully!', 'success');
+            closeModal('addSkillModal');
+            e.target.reset();
+            loadUserProfile(); // Reload profile to show new skill
+        } else {
+            showAlert(result.error || 'Failed to add skill', 'error');
+        }
+    } catch (error) {
+        showAlert('An error occurred. Please try again.', 'error');
+    }
+});
+
+// Remove skill function
+async function removeSkill(skillName) {
+    if (!confirm(`Are you sure you want to remove "${skillName}"?`)) {
+        return;
+    }
+    
+    try {
+        // Find the skill ID first (this would need to be implemented in the backend)
+        // For now, we'll just remove it from the display
+        if (userProfile.skills_teach.includes(skillName)) {
+            userProfile.skills_teach = userProfile.skills_teach.filter(s => s !== skillName);
+        } else if (userProfile.skills_learn.includes(skillName)) {
+            userProfile.skills_learn = userProfile.skills_learn.filter(s => s !== skillName);
+        }
+        
+        updateSkillsDisplay();
+        document.getElementById('skillsOffered').textContent = userProfile.skills_teach.length;
+        document.getElementById('skillsWanted').textContent = userProfile.skills_learn.length;
+        
+        showAlert('Skill removed successfully!', 'success');
+    } catch (error) {
+        showAlert('Failed to remove skill', 'error');
+    }
+}
+
+// Load profile when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserProfile();
+});
+</script>
+{% endblock %}
+{% endblock %} 

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Messages - SkillSwap{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div style="padding: 2rem;">
+        <h2>Messages</h2>
+        
+        <div style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; height: 600px;">
+            <!-- User list -->
+            <div style="border: 1px solid #e1e1e1; border-radius: 10px; overflow-y: auto;">
+                <div style="padding: 1rem; border-bottom: 1px solid #e1e1e1;">
+                    <h3>Conversations</h3>
+                </div>
+                <div id="userList">
+                    <!-- User list will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Messages -->
+            <div style="border: 1px solid #e1e1e1; border-radius: 10px; display: flex; flex-direction: column;">
+                <div id="messageHeader" style="padding: 1rem; border-bottom: 1px solid #e1e1e1; display: none;">
+                    <h3 id="currentChatUser">Select a conversation</h3>
+                </div>
+                
+                <div class="messages-container" id="messagesContainer" style="flex: 1;">
+                    <div style="text-align: center; color: #666; padding: 2rem;">
+                        Select a conversation to start messaging
+                    </div>
+                </div>
+                
+                <div class="message-input" id="messageInputContainer" style="display: none;">
+                    <input type="text" placeholder="Type your message..." id="messageInput">
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+let users = [];
+let currentChatUserId = null;
+let messages = [];
+
+// Load users for messaging
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/users');
+        users = await response.json();
+        displayUserList();
+    } catch (error) {
+        showAlert('Failed to load users', 'error');
+    }
+}
+
+// Display user list
+function displayUserList() {
+    const container = document.getElementById('userList');
+    
+    if (users.length === 0) {
+        container.innerHTML = '<p style="padding: 1rem; color: #666;">No users available.</p>';
+        return;
+    }
+    
+    container.innerHTML = users.map(user => `
+        <div class="user-item" onclick="selectUser(${user.id})" style="padding: 1rem; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background-color 0.2s;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="user-avatar" style="width: 40px; height: 40px; font-size: 1rem;">${user.username[0].toUpperCase()}</div>
+                <div>
+                    <strong>${user.username}</strong>
+                    <div style="font-size: 0.9rem; color: #666;">${user.bio ? user.bio.substring(0, 30) + '...' : 'No bio'}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Select user for messaging
+async function selectUser(userId) {
+    currentChatUserId = userId;
+    const user = users.find(u => u.id === userId);
+    
+    // Update UI
+    document.getElementById('currentChatUser').textContent = user.username;
+    document.getElementById('messageHeader').style.display = 'block';
+    document.getElementById('messageInputContainer').style.display = 'flex';
+    
+    // Highlight selected user
+    document.querySelectorAll('.user-item').forEach(item => {
+        item.style.backgroundColor = '';
+    });
+    event.currentTarget.style.backgroundColor = '#f0f0f0';
+    
+    // Load messages
+    await loadMessages(userId);
+}
+
+// Load messages for a specific user
+async function loadMessages(userId) {
+    try {
+        const response = await fetch(`/api/messages?user_id=${userId}`);
+        messages = await response.json();
+        displayMessages();
+    } catch (error) {
+        showAlert('Failed to load messages', 'error');
+    }
+}
+
+// Display messages
+function displayMessages() {
+    const container = document.getElementById('messagesContainer');
+    
+    if (messages.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No messages yet. Start the conversation!</div>';
+        return;
+    }
+    
+    container.innerHTML = messages.map(message => `
+        <div class="message ${message.is_sent ? 'sent' : 'received'}">
+            <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.8;">
+                ${new Date(message.created_at).toLocaleString()}
+            </div>
+            ${message.content}
+        </div>
+    `).join('');
+    
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
+
+// Send message
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    
+    if (!message || !currentChatUserId) return;
+    
+    try {
+        const response = await fetch('/api/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: message,
+                receiver_id: currentChatUserId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            input.value = '';
+            // Reload messages to show the new message
+            await loadMessages(currentChatUserId);
+        } else {
+            showAlert(result.error || 'Failed to send message', 'error');
+        }
+    } catch (error) {
+        showAlert('An error occurred. Please try again.', 'error');
+    }
+}
+
+// Send message on Enter key
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// Load users when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+});
+</script>
+
+<style>
+.user-item:hover {
+    background-color: #f8f9fa !important;
+}
+
+.messages-container {
+    padding: 1rem;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.message {
+    margin-bottom: 1rem;
+    padding: 0.8rem;
+    border-radius: 10px;
+    max-width: 70%;
+}
+
+.message.sent {
+    background: #667eea;
+    color: white;
+    margin-left: auto;
+}
+
+.message.received {
+    background: #f1f3f4;
+    margin-right: auto;
+}
+</style>
+{% endblock %}
+{% endblock %} 

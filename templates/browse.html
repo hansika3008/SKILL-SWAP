@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Skills - SkillSwap{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div style="padding: 2rem;">
+        <h2>Browse Skills & Users</h2>
+        <div class="search-bar">
+            <input type="text" placeholder="Search for skills or users..." id="searchInput">
+        </div>
+        
+        <div class="user-cards" id="userCards">
+            <!-- User cards will be populated here -->
+        </div>
+    </div>
+</div>
+
+<!-- Swap Request Modal -->
+<div id="swapRequestModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('swapRequestModal')">&times;</span>
+        <h3>Request Skill Swap</h3>
+        <form id="swapRequestForm">
+            <div class="form-group">
+                <label for="swapMessage">Message</label>
+                <textarea id="swapMessage" name="message" rows="4" placeholder="Introduce yourself and explain what you'd like to learn/teach..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Send Request</button>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+let users = [];
+let selectedUserId = null;
+
+// Load users
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/users');
+        users = await response.json();
+        displayUsers(users);
+    } catch (error) {
+        showAlert('Failed to load users', 'error');
+    }
+}
+
+// Display users in cards
+function displayUsers(userList) {
+    const container = document.getElementById('userCards');
+    
+    if (userList.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No users found.</p>';
+        return;
+    }
+    
+    container.innerHTML = userList.map(user => `
+        <div class="user-card">
+            <div class="user-avatar">${user.username[0].toUpperCase()}</div>
+            <h4>${user.username}</h4>
+            <p>${user.bio || 'No bio available'}</p>
+            <div style="margin: 1rem 0;">
+                <strong>Can teach:</strong>
+                <div class="skill-tags" style="margin-top: 0.5rem;">
+                    ${user.skills_teach.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                </div>
+            </div>
+            <div style="margin: 1rem 0;">
+                <strong>Wants to learn:</strong>
+                <div class="skill-tags" style="margin-top: 0.5rem;">
+                    ${user.skills_learn.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                <span>⭐ ${user.rating.toFixed(1)}/5</span>
+                <button class="btn btn-primary" onclick="requestSwap(${user.id})">Request Swap</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    
+    if (searchTerm === '') {
+        displayUsers(users);
+        return;
+    }
+    
+    const filteredUsers = users.filter(user => {
+        const searchText = `${user.username} ${user.bio} ${user.skills_teach.join(' ')} ${user.skills_learn.join(' ')}`.toLowerCase();
+        return searchText.includes(searchTerm);
+    });
+    
+    displayUsers(filteredUsers);
+});
+
+// Request swap
+function requestSwap(userId) {
+    selectedUserId = userId;
+    openModal('swapRequestModal');
+}
+
+// Handle swap request form
+document.getElementById('swapRequestForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!selectedUserId) {
+        showAlert('No user selected', 'error');
+        return;
+    }
+    
+    const formData = new FormData(e.target);
+    const requestData = {
+        recipient_id: selectedUserId,
+        message: formData.get('message')
+    };
+    
+    try {
+        const response = await fetch('/api/swap-requests', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Swap request sent successfully!', 'success');
+            closeModal('swapRequestModal');
+            e.target.reset();
+            selectedUserId = null;
+        } else {
+            showAlert(result.error || 'Failed to send request', 'error');
+        }
+    } catch (error) {
+        showAlert('An error occurred. Please try again.', 'error');
+    }
+});
+
+// Load users when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+});
+</script>
+{% endblock %}
+{% endblock %} 

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}SkillSwap - Exchange Skills, Build Community{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="hero">
+        <h1>Exchange Skills, Build Community</h1>
+        <p>Connect with people who want to learn what you can teach, and teach what they want to learn.</p>
+        {% if not current_user.is_authenticated %}
+        <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
+        {% else %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Dashboard</a>
+        {% endif %}
+    </div>
+    
+    <div class="features">
+        <div class="feature-card">
+            <div class="feature-icon">🎓</div>
+            <h3>Learn New Skills</h3>
+            <p>Discover and learn from experts in various fields through skill exchanges.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🤝</div>
+            <h3>Share Your Expertise</h3>
+            <p>Teach others what you know best and build meaningful connections.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🌟</div>
+            <h3>Build Community</h3>
+            <p>Join a thriving community of learners and teachers supporting each other.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.hero {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.hero h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: fadeInUp 1s ease;
+}
+
+.hero p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+    animation: fadeInUp 1s ease 0.2s both;
+}
+
+.features {
+    padding: 4rem 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.feature-card {
+    text-align: center;
+    padding: 2rem;
+    border-radius: 15px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    transform: translateY(0);
+    transition: transform 0.3s;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .hero h1 {
+        font-size: 2rem;
+    }
+    
+    .features {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %} 
